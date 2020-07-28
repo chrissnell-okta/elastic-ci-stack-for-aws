@@ -1,4 +1,4 @@
----
+V---
 AWSTemplateFormatVersion: "2010-09-09"
 Description: "Buildkite stack %v"
 
@@ -877,6 +877,20 @@ Resources:
                   --==BOUNDARY==
                   Content-Type: text/x-shellscript; charset="us-ascii"
                   #!/bin/bash -xv
+                  prepare_scratch_volume() {
+                    LOCAL_DISK_COUNT=$(/bin/find /dev/nvme* -type b -name 'nvme*n1'|/bin/grep -v "nvme0n1"|/bin/wc -l)
+                    /usr/sbin/pvcreate -v /dev/nvme[1-${LOCAL_DISK_COUNT}]n1
+                    /usr/sbin/vgcreate -v scratch /dev/nvme[1-${LOCAL_DISK_COUNT}]n1
+                    /usr/sbin/lvcreate -l 100%FREE -i ${LOCAL_DISK_COUNT} -I 128k -n scratch scratch
+                    /usr/sbin/mkfs.ext4 /dev/mapper/scratch-scratch
+                    mkdir /scratch
+                    /usr/bin/mount /dev/mapper/scratch-scratch /scratch
+                    mkdir /scratch/pods
+                    mkdir /scratch/docker
+                    cat <<< "$(jq '.data-root="/scratch/docker"' /etc/docker/daemon.json)" > /etc/docker/daemon.json
+                  }
+                  INSTANCE_TYPE=$(curl http://169.254.169.254/latest/meta-data/instance-type)
+                  [[ ${INSTANCE_TYPE} =~ ^m5[a]?d.*$ ]] && prepare_scratch_volume
                   BUILDKITE_STACK_NAME="${AWS::StackName}" \
                   BUILDKITE_STACK_VERSION=%v \
                   BUILDKITE_SCALE_IN_IDLE_PERIOD=${ScaleInIdlePeriod} \
