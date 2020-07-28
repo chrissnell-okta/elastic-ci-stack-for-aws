@@ -887,10 +887,7 @@ Resources:
                     /usr/bin/mount /dev/mapper/scratch-scratch /scratch
                     mkdir /scratch/pods
                     mkdir /scratch/docker
-                    /usr/bin/systemctl stop docker
-                    rm -rf /var/lib/docker
-                    ln -s /scratch/docker /var/lib/
-                    /usr/bin/systemctl start docker
+                    cat <<< "$(jq '.data-root="/scratch/docker"' /etc/docker/daemon.json)" > /etc/docker/daemon.json
                   }
                   INSTANCE_TYPE=$(curl http://169.254.169.254/latest/meta-data/instance-type)
                   [[ ${INSTANCE_TYPE} =~ ^m5[a]?d.*$ ]] && prepare_scratch_volume
